@@ -218,6 +218,7 @@ def transcribe_audio(
 
     if cached is not None:
         return TranscriptionResult(
+            call_id=call_id,
             text=cached.transcription,
             segments=[],
             language="en",
@@ -274,6 +275,7 @@ def transcribe_audio(
     duration = getattr(info, "duration", None)
 
     result = TranscriptionResult(
+        call_id=call_id,
         text=full_text,
         segments=result_segments,
         language="en",

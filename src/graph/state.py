@@ -44,6 +44,7 @@ class TranscriptionSegment(BaseModel):
 
 
 class TranscriptionResult(BaseModel):
+    call_id: str
     text: str
     segments: list[TranscriptionSegment] = Field(default_factory=list)
     language: str | None = None
@@ -68,8 +69,11 @@ class Entity(BaseModel):
 
 
 class SummaryResult(BaseModel):
+    call_id: str
     summary: str
+    key_points: list[str] = Field(default_factory=list)
     resolution_status: ResolutionStatus
+    sentiment: str
     action_items: list[ActionItem] = Field(default_factory=list)
     entities: list[Entity] = Field(default_factory=list)
 
@@ -77,13 +81,14 @@ class SummaryResult(BaseModel):
 class QADimensionScore(BaseModel):
     dimension: str
     score: int = Field(ge=1, le=5)
-    feedback: str | None = None
+    justification: str | None = None
 
 
 class ComplianceFlag(BaseModel):
     name: str
     triggered: bool
     details: str | None = None
+    severity: str = "info"
 
 
 class QAScoreResult(BaseModel):
