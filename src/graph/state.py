@@ -40,6 +40,7 @@ class TranscriptionSegment(BaseModel):
     end: float
     text: str
     confidence: float = Field(ge=0.0, le=1.0)
+    speaker: str | None = None
 
 
 class TranscriptionResult(BaseModel):
