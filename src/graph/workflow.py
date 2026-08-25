@@ -10,6 +10,7 @@ from src.agents.transcription import transcribe_audio
 from src.graph.edges import (
     route_after_injection_check,
     route_after_intake,
+    route_after_pii_redaction,
     route_after_qa,
     route_after_transcription,
 )
@@ -38,6 +39,12 @@ def intake_step(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -65,6 +72,12 @@ def transcription_node(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -75,15 +88,25 @@ def transcription_node(state: PipelineState) -> PipelineState:
 @traceable
 def injection_check_node(state: PipelineState) -> PipelineState:
     try:
-        transcription = state["transcription"]
+        transcription = state.get("transcription")
 
-        result = detect_prompt_injection(transcription.text)
+        if transcription is None:
+            raise ValueError(
+                "Transcription result is missing before injection check."
+            )
 
-        if result.injection_detected:
+        detected_patterns = detect_prompt_injection(
+            transcription.text
+        )
+
+        if detected_patterns:
             return {
                 **state,
                 "status": "flagged_for_review",
-                "error": "Prompt injection detected",
+                "error": (
+                    "Prompt injection detected: "
+                    + ", ".join(detected_patterns)
+                ),
             }
 
         return {
@@ -92,6 +115,12 @@ def injection_check_node(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -102,18 +131,22 @@ def injection_check_node(state: PipelineState) -> PipelineState:
 @traceable
 def pii_redaction_node(state: PipelineState) -> PipelineState:
     try:
-        transcription = state["transcription"]
+        transcription = state.get("transcription")
 
-        full_result = redact_pii(transcription.text)
+        if transcription is None:
+            raise ValueError(
+                "Transcription result is missing before PII redaction."
+            )
+
+        redacted_text = redact_pii(transcription.text)
 
         redacted_segments = []
 
         for segment in transcription.segments:
-            segment_result = redact_pii(segment.text)
 
             redacted_segment = segment.model_copy(
                 update={
-                    "text": segment_result.redacted_text,
+                    "text": redact_pii(segment.text),
                 }
             )
 
@@ -121,7 +154,7 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
 
         redacted_transcription = transcription.model_copy(
             update={
-                "text": full_result.redacted_text,
+                "text": redacted_text,
                 "segments": redacted_segments,
             }
         )
@@ -133,6 +166,12 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -143,12 +182,17 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
 @traceable
 def summarize_and_qa_node(state: PipelineState) -> PipelineState:
     try:
-        transcription = state["transcription"]
+        transcription = state.get("transcription")
+
+        if transcription is None:
+            raise ValueError(
+                "Transcription result is missing before summarization."
+            )
 
         summary = summarize_transcript(transcription)
 
         qa_scores = score_call(
-            transcription=transcription,
+            transcript=transcription,
             summary=summary,
         )
 
@@ -160,6 +204,12 @@ def summarize_and_qa_node(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -172,12 +222,15 @@ def report_node(state: PipelineState) -> PipelineState:
     try:
         report = compile_report(
             call_id=state["intake"].call_id,
-            transcription=state["transcription"],
             summary=state["summary"],
             qa_scores=state["qa_scores"],
+            transcription=state["transcription"],
         )
 
-        persist_report(report)
+        persist_report(
+            report,
+            audio_filename=state["audio_input"].filename,
+        )
 
         return {
             **state,
@@ -186,6 +239,12 @@ def report_node(state: PipelineState) -> PipelineState:
         }
 
     except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "transcription_node failed"
+        )
+
         return {
             **state,
             "status": "failed",
@@ -249,9 +308,18 @@ def build_workflow():
         },
     )
 
-    graph.add_edge(
+    # graph.add_edge(
+    #     "pii_redact_step",
+    #     "summarize_and_qa_step",
+    # )
+
+    graph.add_conditional_edges(
         "pii_redact_step",
-        "summarize_and_qa_step",
+        route_after_pii_redaction,
+        {
+            "summarize_and_qa": "summarize_and_qa_step",
+            "error": "error_step",
+        },
     )
 
     graph.add_conditional_edges(
@@ -269,6 +337,10 @@ def build_workflow():
     graph.add_edge("error_step", END)
 
     return graph.compile()
+
+
+def compile_workflow(config, db_engine=None):
+    return build_workflow()
 
 
 workflow = build_workflow()

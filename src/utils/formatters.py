@@ -66,8 +66,10 @@ def format_qa(d) -> str:
             f"{dimension.score}/5"
         )
 
-        if dimension.feedback:
-            lines.append(f"  - {dimension.feedback}")
+        if dimension.justification:
+            lines.append(
+                f"  - {dimension.justification}"
+            )
 
     lines.extend([
         "",
@@ -89,6 +91,7 @@ def format_qa(d) -> str:
                 flag.severity.lower(),
                 "⚠️",
             )
+
             lines.append(
                 f"- {icon} **{flag.name}**: "
                 f"{flag.details or ''}"

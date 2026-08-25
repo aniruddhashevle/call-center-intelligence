@@ -70,11 +70,21 @@ def make_qa_result(overall_score=3.0, score=3):
                 dimension=dimension,
                 score=score,
                 justification="Evidence at 00:01.",
+                feedback="Acknowledge the customer's concern before moving to the solution.",
             )
             for dimension in dimensions
         ],
         compliance_flags=[],
     )
+
+
+def test_qa_dimension_supports_feedback():
+    result = make_qa_result()
+
+    for dimension in result.dimension_scores:
+        assert dimension.justification
+        assert dimension.feedback
+
 
 
 def test_calculate_overall_score():

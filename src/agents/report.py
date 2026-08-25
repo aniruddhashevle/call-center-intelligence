@@ -57,6 +57,7 @@ def persist_report(
         if record is None:
             record = CallRecord(
                 call_id=report.call_id,
+                audio_filename=audio_filename or "unknown",
             )
             session.add(record)
 
@@ -178,15 +179,44 @@ def generate_report_pdf(report: CallReport) -> bytes:
         )
     )
 
+    # for dimension in report.qa_scores.dimension_scores:
+    #     story.append(
+    #         Paragraph(
+    #             f"<b>{dimension.dimension}:</b> "
+    #             f"{dimension.score}/5 — "
+    #             f"{dimension.justification or ''}",
+    #             styles["Normal"],
+    #         )
+    #     )
+
+
     for dimension in report.qa_scores.dimension_scores:
         story.append(
             Paragraph(
                 f"<b>{dimension.dimension}:</b> "
-                f"{dimension.score}/5 — "
-                f"{dimension.justification or ''}",
+                f"{dimension.score}/5",
                 styles["Normal"],
             )
         )
+
+        story.append(
+            Paragraph(
+                f"<b>Justification:</b> "
+                f"{dimension.justification or 'No justification provided.'}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Coaching Feedback:</b> "
+                f"{dimension.feedback or 'No specific feedback provided.'}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(Spacer(1, 6))
+
 
     story.append(Spacer(1, 12))
 

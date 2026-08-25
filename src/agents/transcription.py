@@ -75,9 +75,6 @@ def _check_cache(audio_hash: str):
             .first()
         )
 
-        if cached is None:
-            return None
-
         return cached
 
 
@@ -101,8 +98,7 @@ def _save_cache(
         session.add(
             TranscriptionCache(
                 audio_hash=audio_hash,
-                transcription=transcription,
-                call_id=call_id,
+                transcription_json=transcription,
             )
         )
 
@@ -217,9 +213,18 @@ def transcribe_audio(
     cached = _check_cache(audio_hash)
 
     if cached is not None:
+        cached_text = getattr(
+            cached,
+            "transcription_json",
+            None,
+        )
+
+        if cached_text is None:
+            cached_text = cached.transcription
+
         return TranscriptionResult(
             call_id=call_id,
-            text=cached.transcription,
+            text=cached_text,
             segments=[],
             language="en",
             duration_seconds=None,

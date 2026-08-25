@@ -16,20 +16,42 @@ def route_after_intake(state: PipelineState) -> str:
 
 def route_after_transcription(state: PipelineState) -> str:
     """
-    Transcription always proceeds to the injection check.
+    Continue only when transcription succeeded.
     """
-    return "injection_check"
+    if (
+        state.get("status") == "transcribed"
+        and state.get("transcription") is not None
+    ):
+        return "injection_check"
+
+    return "error"
 
 
 def route_after_injection_check(state: PipelineState) -> str:
     """
-    Stop processing when prompt injection is detected.
-    Otherwise continue to PII redaction.
+    Continue only when injection checking succeeded.
+    Otherwise stop at the error handler.
     """
     if state.get("status") == "flagged_for_review":
         return "error"
 
-    return "pii_redact"
+    if (
+        state.get("status") == "injection_check_passed"
+        and state.get("transcription") is not None
+    ):
+        return "pii_redact"
+
+    return "error"
+
+# def route_after_injection_check(state: PipelineState) -> str:
+#     """
+#     Stop processing when prompt injection is detected.
+#     Otherwise continue to PII redaction.
+#     """
+#     if state.get("status") == "flagged_for_review":
+#         return "error"
+
+#     return "pii_redact"
 
 
 def route_after_qa(state: PipelineState) -> str:
@@ -50,3 +72,16 @@ def route_after_qa(state: PipelineState) -> str:
             return "supervisor_review"
 
     return "report"
+
+
+def route_after_pii_redaction(state: PipelineState) -> str:
+    """
+    Continue to analysis only when PII redaction succeeded.
+    """
+    if (
+        state.get("status") == "pii_redacted"
+        and state.get("transcription") is not None
+    ):
+        return "summarize_and_qa"
+
+    return "error"

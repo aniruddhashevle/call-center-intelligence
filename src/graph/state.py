@@ -82,6 +82,7 @@ class QADimensionScore(BaseModel):
     dimension: str
     score: int = Field(ge=1, le=5)
     justification: str | None = None
+    feedback: str | None = None
 
 
 class ComplianceFlag(BaseModel):

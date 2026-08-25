@@ -96,6 +96,23 @@ When possible, cite timestamps in MM:SS format.
 
 Write like a real coaching review, not like a generic AI evaluation.
 
+## Coaching feedback
+
+For every dimension, provide concise, actionable coaching feedback.
+
+Feedback must tell the agent what they could do differently or continue doing
+to improve performance.
+
+Do not simply repeat the justification or restate the score.
+
+For scores of 4 or 5, acknowledge the strong behavior and, when appropriate,
+suggest how the agent can maintain or further improve it.
+
+For scores of 1, 2, or 3, identify a specific improvement the agent can make.
+
+Feedback should be practical and directly applicable to future calls.
+Write like a real call-center QA coach.
+
 ## Compliance flags
 
 Only flag genuine procedural or policy violations.
