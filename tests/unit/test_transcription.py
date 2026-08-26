@@ -146,6 +146,7 @@ def test_transcribe_audio_calls_whisper_with_required_options(
     assert kwargs["condition_on_previous_text"] is False
 
 
+
 def test_transcribe_audio_returns_cached_result(
     tmp_path,
     monkeypatch,
@@ -153,15 +154,10 @@ def test_transcribe_audio_returns_cached_result(
     file_path = tmp_path / "audio.wav"
     file_path.write_bytes(b"fake audio")
 
-    cached = SimpleNamespace(
-        transcription="Cached transcript",
-        call_id="old-call",
-    )
-
     monkeypatch.setattr(
         transcription,
         "_check_cache",
-        lambda audio_hash: cached,
+        lambda audio_hash: "Cached transcript",
     )
 
     def fail_if_model_called(model_size):
@@ -181,7 +177,10 @@ def test_transcribe_audio_returns_cached_result(
     )
 
     assert result.text == "Cached transcript"
+    assert result.call_id == "new-call"
     assert result.language == "en"
+    assert result.segments == []
+    assert result.duration_seconds is None
 
 
 def test_speaker_diarizer_agent_content_pattern():

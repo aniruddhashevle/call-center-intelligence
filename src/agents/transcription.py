@@ -65,8 +65,8 @@ def _compute_audio_hash(file_path: str | Path) -> str:
     return sha256.hexdigest()
 
 
-def _check_cache(audio_hash: str):
-    """Return cached transcription if the audio hash exists."""
+def _check_cache(audio_hash: str) -> str | None:
+    """Return cached transcription text if the audio hash exists."""
 
     with session_scope() as session:
         cached = (
@@ -75,8 +75,23 @@ def _check_cache(audio_hash: str):
             .first()
         )
 
-        return cached
+        if cached is None:
+            return None
 
+        cached_text = getattr(
+            cached,
+            "transcription_json",
+            None,
+        )
+
+        if cached_text is None:
+            cached_text = getattr(
+                cached,
+                "transcription",
+                None,
+            )
+
+        return cached_text
 
 def _save_cache(
     audio_hash: str,
@@ -213,18 +228,9 @@ def transcribe_audio(
     cached = _check_cache(audio_hash)
 
     if cached is not None:
-        cached_text = getattr(
-            cached,
-            "transcription_json",
-            None,
-        )
-
-        if cached_text is None:
-            cached_text = cached.transcription
-
         return TranscriptionResult(
             call_id=call_id,
-            text=cached_text,
+            text=cached,
             segments=[],
             language="en",
             duration_seconds=None,

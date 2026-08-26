@@ -1,264 +1,273 @@
 # Call Center Intelligence
 
-An AI-powered call center intelligence application that transforms customer call recordings into structured, actionable insights.
+jAn AI-powered call center intelligence application that transforms call recordings into structured, actionable insights.
 
-The application accepts call recordings, transcribes them, analyzes the conversation, evaluates agent quality, detects compliance issues, persists the results, and generates downloadable reports.
+The application transcribes calls, identifies Agent/Customer dialogue, detects PII and prompt injection, generates summaries, scores agent performance, and produces PDF/JSON reports.
 
 ---
 
 ## Features
 
-### Audio Processing
+* 🎙️ Upload or record call audio through Gradio
+* 📝 Local speech-to-text using `faster-whisper`
+* 🗣️ Agent / Customer speaker labeling
+* ⏱️ Timestamped transcription segments
+* 📊 Transcription confidence scoring
+* 🧹 Transcript cleanup
+* 🔐 PII detection and redaction
+* 🛡️ Prompt injection detection
+* 🧠 LLM-powered call summarization
+* ⭐ QA scoring across multiple dimensions
+* 🚩 Compliance flag detection
+* 📄 PDF and JSON report generation
+* 💾 SQLite persistence with SQLAlchemy
+* ⚡ SHA-256 transcription caching
+* 🔍 LangSmith tracing and observability dashboard
 
-- Upload or record call audio through the Gradio interface.
-- Supports common audio formats including:
-  - WAV
-  - MP3
-  - FLAC
-  - M4A
-- Validates uploaded audio before processing.
-- Extracts audio properties such as:
-  - Format
-  - Sample rate
-  - Number of channels
-  - Frame count
-  - Duration
-- Rejects audio exceeding the configured maximum duration.
-- Detects potentially sensitive metadata such as:
-  - Phone numbers
-  - Email addresses
-  - Social Security numbers
-  - Credit card numbers
-
-### Speech-to-Text
-
-- Uses `faster-whisper` for local speech transcription.
-- Supports configurable Whisper model sizes.
-- Uses GPU acceleration with CUDA when available.
-- Falls back to CPU when GPU acceleration is unavailable.
-- Uses voice activity detection to reduce unnecessary transcription.
-- Produces timestamped transcription segments.
-- Calculates confidence scores for transcription segments.
-- Performs basic transcription cleanup.
-- Provides speaker labels such as `Agent` and `Customer`.
-- Uses SHA-256 audio hashing to cache previously transcribed audio.
-
-### Call Analysis
-
-The pipeline generates a structured call summary containing:
-
-- Call purpose
-- Key discussion points
-- Resolution status
-- Sentiment
-- Action items
-- Extracted entities
-
-Resolution statuses include:
-
-- Resolved
-- Unresolved
-- Escalated
-
-### Quality Assurance
-
-Calls are evaluated across configurable QA dimensions.
-
-Each dimension contains:
-
-- Score from 1–5
-- Justification
-- Compliance information where applicable
-
-The QA system also produces:
-
-- Overall QA score
-- Dimension-level scores
-- Compliance flags
-- Compliance severity
-
-Compliance severities include:
-
-- Info
-- Low
-- Medium
-- High
-
-### Reports
-
-Each completed call can produce:
-
-- JSON report
-- PDF report
-
-Reports contain the call summary, QA results, compliance information, and transcription data.
-
-### Persistence
-
-The application persists processing results using SQLite and SQLAlchemy.
-
-Stored information includes:
-
-- Call ID
-- Processing status
-- Audio filename
-- Transcript
-- Summary
-- QA scores
-- Complete report
-- Processing timestamp
-- Trace ID
-
-### Audit Logging
-
-Important application actions can be written to an audit log.
-
-Audit records contain:
-
-- Call ID
-- Action
-- User
-- Timestamp
-- Additional details
-
-### Observability
-
-The application includes a Pipeline Observability dashboard with:
-
-- Total calls
-- Completed calls
-- Failed calls
-- Flagged / supervisor review calls
-- Success rate
-- Average QA score
-- Compliance flag count
-- Audit event count
-- Recent audit events
-- LangSmith configuration status
+> **Note:** Speaker labels currently use transcript/context-based heuristics rather than full acoustic speaker diarization, so they should be treated as best-effort.
 
 ---
 
-# Architecture
-
-The application is organized into several layers.
+## Architecture
 
 ```text
-                         ┌─────────────────────┐
-                         │     Gradio UI       │
-                         │                     │
-                         │  Analyze Call       │
-                         │  Observability      │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  Pipeline Service   │
-                         │                     │
-                         │ process_call()      │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  Workflow / Graph   │
-                         └──────────┬──────────┘
-                                    │
-              ┌─────────────────────┼─────────────────────┐
-              │                     │                     │
-              ▼                     ▼                     ▼
-       ┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-       │   Intake    │      │Transcription │      │   Summary   │
-       │             │      │              │      │             │
-       │ Validation  │      │ Whisper      │      │ LLM         │
-       │ PII Scan    │      │ Confidence   │      │ Analysis    │
-       └─────────────┘      │ Diarization  │      └──────┬──────┘
-                            └──────────────┘             │
-                                                        ▼
-                                                 ┌─────────────┐
-                                                 │     QA      │
-                                                 │             │
-                                                 │ Scoring     │
-                                                 │ Compliance  │
-                                                 └──────┬──────┘
-                                                        │
-                                                        ▼
-                                                 ┌─────────────┐
-                                                 │   Report    │
-                                                 │             │
-                                                 │ JSON / PDF  │
-                                                 └──────┬──────┘
-                                                        │
-                                                        ▼
-                                                 ┌─────────────┐
-                                                 │   SQLite    │
-                                                 │             │
-                                                 │ Calls       │
-                                                 │ Audit Logs  │
-                                                 │ Cache       │
-                                                 └─────────────┘
+Gradio UI
+    │
+    ▼
+Pipeline Service
+    │
+    ▼
+LangGraph Workflow
+    │
+    ├── Intake / Validation
+    │
+    ├── Transcription
+    │      ├── faster-whisper
+    │      ├── Confidence
+    │      ├── Speaker labeling
+    │      └── Cache
+    │
+    ├── Prompt Injection Check
+    │
+    ├── PII Redaction
+    │
+    ├── Summary
+    │
+    ├── QA Scoring
+    │
+    └── Report
+           ├── JSON
+           └── PDF
+```
 
-
-
-## System Dependencies
-
-The application uses FFmpeg/FFprobe for audio format detection and
-processing of non-WAV uploads such as MP3 and M4A.
-
-FFmpeg must be installed on the machine running the application and
-`ffmpeg` and `ffprobe` must be available on `PATH`.
-
-### macOS
-
-Using Homebrew:
-
-```bash
-brew install ffmpeg
-
+---
 
 ## Project Structure
 
+```text
 call-center-intelligence/
-│
 ├── src/
 │   ├── agents/
-│   │   ├── intake.py
-│   │   ├── transcription.py
-│   │   ├── report.py
-│   │   └── ...
-│   │
 │   ├── database/
-│   │   ├── connection.py
-│   │   ├── session.py
-│   │   └── models.py
-│   │
 │   ├── graph/
-│   │   ├── state.py
-│   │   └── workflow.py
-│   │
 │   ├── security/
-│   │   └── audit.py
-│   │
 │   ├── services/
-│   │   ├── pipeline.py
-│   │   └── observability.py
-│   │
 │   ├── ui/
-│   │   ├── app.py
-│   │   └── tabs/
-│   │       ├── analyze.py
-│   │       └── observability.py
-│   │
 │   └── utils/
-│       ├── audio.py
-│       ├── config.py
-│       └── formatters.py
-│
 ├── tests/
 │   ├── unit/
 │   └── integration/
-│
 ├── data/
-│   └── app.db
-│
 ├── .env
 ├── pyproject.toml
 └── README.md
+```
+
+---
+
+## Requirements
+
+* Python 3.12
+* FFmpeg / FFprobe
+* API key for the configured LLM provider
+* Optional CUDA GPU for faster Whisper inference
+
+### macOS
+
+```bash
+brew install ffmpeg
+```
+
+Verify:
+
+```bash
+ffmpeg -version
+ffprobe -version
+```
+
+---
+
+## Installation
+
+Using `uv`:
+
+```bash
+uv sync
+```
+
+Create a `.env` file with the required configuration, for example:
+
+```env
+OPENAI_API_KEY=your-api-key
+```
+
+Do not commit `.env` or API keys to Git.
+
+---
+
+## Run the Application
+
+```bash
+uv run python -m src.ui.app
+```
+
+Open:
+
+```text
+http://127.0.0.1:7860
+```
+
+### Analyze a Call
+
+1. Upload or record a call.
+2. Optionally enter caller ID and department.
+3. Click **Analyze Call**.
+4. Review the transcript, summary, and QA results.
+5. Download the PDF or JSON report.
+
+Example transcript:
+
+```text
+[00:01] Agent: Hello, my name is Steven.
+[00:10] Agent: I'm calling from the financial department.
+[00:48] Customer: So are you available?
+[00:51] Agent: Yes.
+```
+
+---
+
+## Testing
+
+Run the complete test suite:
+
+```bash
+uv run pytest -q
+```
+
+Run unit tests:
+
+```bash
+uv run pytest tests/unit -q
+```
+
+Run integration tests:
+
+```bash
+uv run pytest tests/integration -q
+```
+
+Run a specific test:
+
+```bash
+uv run pytest tests/unit/test_transcription.py -q
+```
+
+The test suite covers transcription, caching, speaker labeling, PII detection, routing, QA scoring, error handling, and end-to-end pipeline execution.
+
+---
+
+## Database
+
+The application uses SQLite with SQLAlchemy.
+
+Database:
+
+```text
+data/app.db
+```
+
+The database stores call records, reports, audit information, and transcription cache data.
+
+---
+
+## Security
+
+The pipeline includes:
+
+* PII detection and redaction
+* Prompt injection detection
+* Audit logging
+* Environment-based secret management
+
+Detected PII is replaced with placeholders such as:
+
+```text
+123-45-6789
+→ [SSN]
+
+john@example.com
+→ [EMAIL]
+
+4111 1111 1111 1111
+→ [CREDIT_CARD]
+```
+
+---
+
+## Reports
+
+Completed calls generate:
+
+* **PDF report**
+* **JSON report**
+
+Reports include transcription, summary, QA scores, and compliance information.
+
+---
+
+## Current Status
+
+The application has been validated with automated unit/integration tests and manual end-to-end testing through the Gradio UI.
+
+The current pipeline successfully supports:
+
+```text
+Audio
+  ↓
+Validation
+  ↓
+Transcription
+  ↓
+Injection Detection
+  ↓
+PII Redaction
+  ↓
+Summary + QA
+  ↓
+Report Generation
+  ↓
+SQLite Persistence
+```
+
+---
+
+## Future Improvements
+
+* True acoustic speaker diarization
+* Improved Agent / Customer identification
+* Streaming transcription
+* Real-time analysis
+* Advanced compliance rules
+* More PII patterns
+* Authentication and role-based access control
+* Enhanced reporting and analytics
