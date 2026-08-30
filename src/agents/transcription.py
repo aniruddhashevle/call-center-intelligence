@@ -304,29 +304,44 @@ def transcribe_audio(
 
 _AGENT_PATTERNS = [
     re.compile(
-        r"\b(how can I help|how may I help|"
-        r"thank you for calling|"
-        r"let me check|"
-        r"I can help|"
-        r"your account|"
-        r"your order)\b",
-        re.IGNORECASE,
+    r"\b("
+    r"thank you for calling|"
+    r"how can I help|"
+    r"how may I help|"
+    r"let me check|"
+    r"let me look|"
+    r"I can help you|"
+    r"I'll help you|"
+    r"I'd be happy to help|"
+    r"your account|"
+    r"your order|"
+    r"please verify|"
+    r"can I have your|"
+    r"may I have your"
+    r")\b",
+    re.IGNORECASE,
     ),
 ]
 
 _CUSTOMER_PATTERNS = [
     re.compile(
-        r"\b(I need|I want|"
-        r"my problem|"
-        r"my issue|"
-        r"I was charged|"
-        r"I can't|"
-        r"I cannot|"
-        r"can you help)\b",
-        re.IGNORECASE,
+    r"\b("
+    r"I need help|"
+    r"I need|"
+    r"I want|"
+    r"I'd like|"
+    r"my problem|"
+    r"my issue|"
+    r"I was charged|"
+    r"I can't|"
+    r"I cannot|"
+    r"I was calling|"
+    r"I'm calling|"
+    r"can you help me"
+    r")\b",
+    re.IGNORECASE,
     ),
 ]
-
 
 @dataclass
 class SpeakerSegment:
@@ -335,16 +350,29 @@ class SpeakerSegment:
     text: str
     speaker: str
 
-
 class SpeakerDiarizer:
-    """Assign Agent/Customer labels using transcript context."""
+    """
+    Estimate Agent/Customer roles from transcript turn-taking.
+
+    This is heuristic role estimation, not true acoustic speaker
+    diarization. Established speakers are preserved unless there is
+    meaningful evidence that a conversational turn occurred.
+    """
+
+    GAP_THRESHOLD = 1.2
+    STRONG_GAP_THRESHOLD = 2.5
+    SHORT_SEGMENT_WORDS = 3
+    LONG_SEGMENT_WORDS = 8
 
     def diarize(self, segments) -> list[SpeakerSegment]:
-        results = []
-        previous = None
+        results: list[SpeakerSegment] = []
+        previous: SpeakerSegment | None = None
 
         for segment in segments:
             text = segment.text.strip()
+
+            if not text:
+                continue
 
             speaker = self._classify_segment(
                 text=text,
@@ -370,47 +398,128 @@ class SpeakerDiarizer:
         previous: SpeakerSegment | None,
         current_start: float,
     ) -> str:
-        # 1. Content patterns have highest priority.
-        if any(pattern.search(text) for pattern in _AGENT_PATTERNS):
-            return "Agent"
+        agent_match = any(
+            pattern.search(text)
+            for pattern in _AGENT_PATTERNS
+        )
 
-        if any(pattern.search(text) for pattern in _CUSTOMER_PATTERNS):
-            return "Customer"
+        customer_match = any(
+            pattern.search(text)
+            for pattern in _CUSTOMER_PATTERNS
+        )
 
+        # First segment:
+        # use explicit role evidence when available, otherwise assume
+        # the call starts with the agent.
         if previous is None:
+            if customer_match and not agent_match:
+                return "Customer"
+
             return "Agent"
 
-        # 2. A long gap usually indicates a speaker turn.
-        gap = current_start - previous.end
+        previous_speaker = previous.speaker
 
-        if gap > 1.2:
-            return (
-                "Customer"
-                if previous.speaker == "Agent"
-                else "Agent"
-            )
+        opposite_speaker = (
+            "Customer"
+            if previous_speaker == "Agent"
+            else "Agent"
+        )
 
-        # 3. Question → answer usually changes speaker.
-        if previous.text.rstrip().endswith("?"):
-            return (
-                "Customer"
-                if previous.speaker == "Agent"
-                else "Agent"
-            )
+        gap = max(
+            0.0,
+            current_start - previous.end,
+        )
 
-        # 4. Short affirmation after a long segment.
-        word_count = len(text.split())
+        current_word_count = len(text.split())
         previous_word_count = len(previous.text.split())
 
-        if (
-            word_count <= 3
-            and previous_word_count > 8
-        ):
-            return (
-                "Customer"
-                if previous.speaker == "Agent"
-                else "Agent"
-            )
+        switch_score = 0
 
-        # Otherwise keep the previous speaker.
-        return previous.speaker
+        # ---------------------------------------------------------
+        # Turn-taking evidence
+        # ---------------------------------------------------------
+
+        # Strong pause.
+        if gap >= self.STRONG_GAP_THRESHOLD:
+            switch_score += 2
+
+        # Normal conversational pause.
+        elif gap >= self.GAP_THRESHOLD:
+            switch_score += 1
+
+        # Question → response.
+        if previous.text.rstrip().endswith("?"):
+            switch_score += 2
+
+        # ---------------------------------------------------------
+        # Short acknowledgement handling
+        # ---------------------------------------------------------
+
+        acknowledgements = {
+            "okay",
+            "ok",
+            "alright",
+            "all right",
+            "yes",
+            "yeah",
+            "yep",
+            "sure",
+            "right",
+            "no",
+        }
+
+        normalized_text = re.sub(
+            r"[.!?,]+$",
+            "",
+            text.lower(),
+        ).strip()
+
+        is_acknowledgement = normalized_text in acknowledgements
+
+        # A short acknowledgement after a substantial statement is
+        # strong evidence that the other person has taken the turn.
+        if (
+            is_acknowledgement
+            and previous_word_count >= self.LONG_SEGMENT_WORDS
+        ):
+            switch_score += 2
+
+        # Generic short segment after a long statement.
+        elif (
+            current_word_count <= self.SHORT_SEGMENT_WORDS
+            and previous_word_count >= self.LONG_SEGMENT_WORDS
+        ):
+            switch_score += 1
+
+        # ---------------------------------------------------------
+        # Content evidence
+        # ---------------------------------------------------------
+        #
+        # Content alone is NOT enough to change an established
+        # speaker. It only adds evidence when a turn is already
+        # suspected.
+        #
+
+        if previous_speaker == "Agent":
+            if customer_match and not agent_match:
+                switch_score += 1
+
+        else:
+            if agent_match and not customer_match:
+                switch_score += 1
+
+        # Strongly contradictory content can reinforce an existing
+        # turn, but never causes an immediate flip by itself.
+        if previous_speaker == "Agent":
+            if agent_match and not customer_match:
+                switch_score = max(0, switch_score - 1)
+
+        else:
+            if customer_match and not agent_match:
+                switch_score = max(0, switch_score - 1)
+
+        # Require meaningful evidence before switching.
+        if switch_score >= 2:
+            return opposite_speaker
+
+        return previous_speaker
