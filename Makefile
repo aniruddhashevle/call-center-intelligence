@@ -1,29 +1,54 @@
-.PHONY: install test test-integration test-all lint format run clean
+.PHONY: install test test-unit test-integration test-all lint format check run clean clean-cache reset-db reset db-info db-tables
 
 install:
-	pip install -e ".[dev]"
+	uv sync --dev
 	pre-commit install
 
 test:
-	pytest tests/unit tests/security -v
+	uv run pytest tests/unit tests/security -v
+
+test-unit:
+	uv run pytest tests/unit -v
 
 test-integration:
-	pytest tests/integration -v
+	uv run pytest tests/integration -v
 
 test-all:
-	pytest tests/ -v
+	uv run pytest tests/ -v
 
 lint:
-	ruff check .
+	uv run ruff check .
 
 format:
-	ruff check --fix .
-	ruff format .
+	uv run ruff check --fix .
+	uv run ruff format .
+
+check:
+	uv run ruff check .
+	uv run ruff format --check .
+	uv run pytest tests/ -q
 
 run:
-	python app.py
+	uv run python app.py
 
-clean:
+clean-cache:
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
 	find . -type d -name ".pytest_cache" -prune -exec rm -rf {} +
 	find . -type d -name "*.egg-info" -prune -exec rm -rf {} +
+
+clean:
+	$(MAKE) clean-cache
+
+reset-db:
+	rm -f data/call_center.db
+
+db-info:
+	sqlite3 data/call_center.db ".databases"
+
+db-tables:
+	sqlite3 data/call_center.db ".tables"
+
+reset:
+	$(MAKE) clean-cache
+	$(MAKE) reset-db
