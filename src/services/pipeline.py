@@ -68,6 +68,37 @@ def _write_audio_to_temp(
     if audio_array.size == 0:
         raise ValueError("The uploaded audio is empty.")
 
+    # Normalize to mono.
+    if audio_array.ndim > 1:
+        audio_array = audio_array.mean(axis=1)
+
+    # Normalize sample rate to 16 kHz for transcription.
+    target_sample_rate = 16000
+
+    if sample_rate != target_sample_rate:
+        target_length = round(
+            len(audio_array) * target_sample_rate / sample_rate
+        )
+
+        old_positions = np.linspace(
+            0,
+            len(audio_array) - 1,
+            num=len(audio_array),
+        )
+        new_positions = np.linspace(
+            0,
+            len(audio_array) - 1,
+            num=target_length,
+        )
+
+        audio_array = np.interp(
+            new_positions,
+            old_positions,
+            audio_array,
+        )
+
+        sample_rate = target_sample_rate
+
     temp_file = tempfile.NamedTemporaryFile(
         suffix=".wav",
         delete=False,
@@ -81,6 +112,7 @@ def _write_audio_to_temp(
         audio_array,
         sample_rate,
         format="WAV",
+        subtype="PCM_16",
     )
 
     return _track_temp_file(temp_path)

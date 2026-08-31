@@ -109,6 +109,7 @@ class PipelineState(TypedDict, total=False):
     audio_input: AudioInput
     intake: IntakeResult
     transcription: TranscriptionResult
+    transcript_pii_scan: PIIScanResult
     summary: SummaryResult
     qa_scores: QAScoreResult
     report: CallReport

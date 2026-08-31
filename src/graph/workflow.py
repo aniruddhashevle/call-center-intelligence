@@ -14,9 +14,13 @@ from src.graph.edges import (
     route_after_qa,
     route_after_transcription,
 )
-from src.graph.state import PipelineState
+from src.graph.state import PIIScanResult, PipelineState
 from src.security.injection_detector import detect_prompt_injection
 from src.security.pii_redactor import redact_pii
+from src.security.pii_redactor import (
+    detect_pii,
+    redact_pii,
+)
 
 
 @traceable
@@ -138,11 +142,21 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
                 "Transcription result is missing before PII redaction."
             )
 
+        # Detect PII before modifying the transcript.
+        detected_pii = detect_pii(transcription.text)
+
+        # Redact complete transcript.
         redacted_text = redact_pii(transcription.text)
 
+        # Redact each segment individually.
         redacted_segments = []
 
         for segment in transcription.segments:
+            segment_pii = detect_pii(segment.text)
+
+            for pii_type in segment_pii:
+                if pii_type not in detected_pii:
+                    detected_pii.append(pii_type)
 
             redacted_segment = segment.model_copy(
                 update={
@@ -159,8 +173,37 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
             }
         )
 
+        # Merge transcript PII with any PII already detected during intake.
+        intake = state.get("intake")
+
+        if intake is not None:
+            existing_fields = list(
+                intake.pii_scan.affected_fields
+            )
+
+            if detected_pii and "transcript" not in existing_fields:
+                existing_fields.append("transcript")
+
+            updated_pii_scan = intake.pii_scan.model_copy(
+                update={
+                    "pii_detected": bool(
+                        existing_fields
+                    ),
+                    "affected_fields": existing_fields,
+                }
+            )
+
+            updated_intake = intake.model_copy(
+                update={
+                    "pii_scan": updated_pii_scan,
+                }
+            )
+        else:
+            updated_intake = intake
+
         return {
             **state,
+            "intake": updated_intake,
             "transcription": redacted_transcription,
             "status": "pii_redacted",
         }
@@ -169,7 +212,7 @@ def pii_redaction_node(state: PipelineState) -> PipelineState:
         import logging
 
         logging.getLogger(__name__).exception(
-            "transcription_node failed"
+            "pii_redaction_node failed"
         )
 
         return {
@@ -265,6 +308,12 @@ def error_node(state: PipelineState) -> PipelineState:
     return {
         **state,
         "status": "failed",
+        "error": state.get("error")
+        or (
+            state.get("intake").error
+            if state.get("intake") is not None
+            else None
+        ),
     }
 
 
@@ -296,6 +345,7 @@ def build_workflow():
         route_after_transcription,
         {
             "injection_check": "injection_check_step",
+            "error": "error_step",
         },
     )
 
@@ -307,11 +357,6 @@ def build_workflow():
             "error": "error_step",
         },
     )
-
-    # graph.add_edge(
-    #     "pii_redact_step",
-    #     "summarize_and_qa_step",
-    # )
 
     graph.add_conditional_edges(
         "pii_redact_step",

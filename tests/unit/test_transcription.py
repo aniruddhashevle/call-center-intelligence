@@ -136,7 +136,7 @@ def test_transcribe_audio_calls_whisper_with_required_options(
 
     _, kwargs = fake_model.calls[0]
 
-    assert kwargs["beam_size"] == 1
+    assert kwargs["beam_size"] == 5
     assert kwargs["language"] == "en"
     assert kwargs["vad_filter"] is True
     assert kwargs["vad_parameters"] == {

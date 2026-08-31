@@ -215,7 +215,7 @@ def _calculate_confidence(segment) -> float:
 def transcribe_audio(
     file_path: str | Path,
     call_id: str,
-    model_size: str = "base",
+    model_size: str = "small",
 ) -> TranscriptionResult:
     """
     Transcribe an audio file using faster-whisper.
@@ -240,7 +240,7 @@ def transcribe_audio(
 
     segments, info = model.transcribe(
         str(file_path),
-        beam_size=1,
+        beam_size=5,
         language="en",
         vad_filter=True,
         vad_parameters={
