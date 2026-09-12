@@ -8,7 +8,7 @@ The application transcribes calls, identifies Agent/Customer dialogue, detects P
 
 ## Features
 
-* 🎙️ Upload or record call audio through Gradio
+* 🎙️ Upload call audio through Gradio
 * 📝 Local speech-to-text using `faster-whisper`
 * 🗣️ Agent / Customer speaker labeling
 * ⏱️ Timestamped transcription segments
@@ -139,7 +139,7 @@ http://127.0.0.1:7860
 
 ### Analyze a Call
 
-1. Upload or record a call.
+1. Upload a call.
 2. Optionally enter caller ID and department.
 3. Click **Analyze Call**.
 4. Review the transcript, summary, and QA results.

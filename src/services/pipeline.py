@@ -68,35 +68,42 @@ def _write_audio_to_temp(
     if audio_array.size == 0:
         raise ValueError("The uploaded audio is empty.")
 
-    # Normalize to mono.
+    # Convert multi-channel audio (e.g. stereo/surround) into a single mono channel.
     if audio_array.ndim > 1:
         audio_array = audio_array.mean(axis=1)
 
-    # Normalize sample rate to 16 kHz for transcription.
+    # Set the target sample rate to 16 kHz (16,000 audio samples per second) for transcription.
     target_sample_rate = 16000
 
+    # Resample the audio only if its current sample rate is different.
     if sample_rate != target_sample_rate:
+        # Calculate how many samples the audio should have at the new sample rate.
         target_length = round(
             len(audio_array) * target_sample_rate / sample_rate
         )
 
+        # Create positions representing the samples in the original audio.
         old_positions = np.linspace(
             0,
             len(audio_array) - 1,
             num=len(audio_array),
         )
+
+        # Create positions for the samples needed at the new sample rate.
         new_positions = np.linspace(
             0,
             len(audio_array) - 1,
             num=target_length,
         )
 
+        # Estimate values between original samples to create the correct number of samples for the new sample rate (interpolation).
         audio_array = np.interp(
             new_positions,
             old_positions,
             audio_array,
         )
 
+        # Update the sample rate to reflect the converted audio.
         sample_rate = target_sample_rate
 
     temp_file = tempfile.NamedTemporaryFile(
@@ -214,7 +221,7 @@ def process_call(
             transcript="",
             summary="",
             qa="",
-            error="Please upload or record an audio call.",
+            error="Please upload an audio call.",
         )
 
     try:

@@ -66,11 +66,11 @@ def build_analyze_tab() -> None:
     )
 
     gr.Markdown(
-        "Upload a call recording or record directly from your microphone."
+        "Upload a call recording." #TODO: [ENHANCEMENT] record directly from your microphone
     )
 
     audio = gr.Audio(
-        sources=["upload", "microphone"],
+        sources=["upload"], #TODO: [ENHANCEMENT] add "microphone" source for direct recording.
         type="numpy",
         label="Call Audio",
     )
