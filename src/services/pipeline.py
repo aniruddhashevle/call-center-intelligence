@@ -126,6 +126,11 @@ def _format_transcript(report: CallReport) -> str:
     if transcription is None:
         return ""
 
+    print(
+        "DEBUG: Transcription segments:",
+        len(transcription.segments),
+    )
+
     if not transcription.segments:
         if not transcription.text:
             return ""

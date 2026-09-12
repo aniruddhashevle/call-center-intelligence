@@ -502,21 +502,21 @@ class SpeakerDiarizer:
 
         if previous_speaker == "Agent":
             if customer_match and not agent_match:
-                switch_score += 1
+                switch_score += 2
 
         else:
             if agent_match and not customer_match:
-                switch_score += 1
+                switch_score += 2
 
         # Strongly contradictory content can reinforce an existing
         # turn, but never causes an immediate flip by itself.
-        if previous_speaker == "Agent":
-            if agent_match and not customer_match:
-                switch_score = max(0, switch_score - 1)
+        # if previous_speaker == "Agent":
+        #     if agent_match and not customer_match:
+        #         switch_score = max(0, switch_score - 1)
 
-        else:
-            if customer_match and not agent_match:
-                switch_score = max(0, switch_score - 1)
+        # else:
+        #     if customer_match and not agent_match:
+        #         switch_score = max(0, switch_score - 1)
 
         # Require meaningful evidence before switching.
         if switch_score >= 2:

@@ -12,9 +12,9 @@ def _show_processing_status() -> gr.Markdown:
 
 This may take a few minutes depending on the audio length and Whisper model.
 
-**Estimated duration:** approximately 1–3 minutes.
+The processing required few minutes.
 
-⚠️ **Please do not refresh or close this page while processing.**
+⚠️ **Please do not REFRESH or CLOSE this page while processing.**
 """,
         visible=True,
     )
