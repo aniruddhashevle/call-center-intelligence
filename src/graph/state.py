@@ -11,6 +11,7 @@ class AudioInput(BaseModel):
     caller_id: str | None = None
     department: str | None = None
     timestamp: datetime | None = None
+    original_file_path: str | None = None
 
 
 class AudioProperties(BaseModel):
@@ -31,6 +32,7 @@ class IntakeResult(BaseModel):
     validation_passed: bool
     audio_properties: AudioProperties
     pii_scan: PIIScanResult
+    original_file_path: str | None = None
     temp_file_path: str | None = None
     error: str | None = None
 

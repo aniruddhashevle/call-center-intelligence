@@ -52,6 +52,7 @@ def _make_failed_result(
         validation_passed=False,
         audio_properties=_EMPTY_AUDIO_PROPS,
         pii_scan=pii_scan,
+        original_file_path=None,
         temp_file_path=None,
         error=error,
     )
@@ -160,6 +161,7 @@ def run_intake(audio_input: AudioInput) -> IntakeResult:
             validation_passed=True,
             audio_properties=audio_properties,
             pii_scan=pii_scan,
+            original_file_path=audio_input.original_file_path,
             temp_file_path=temp_file_path,
             error=None,
         )

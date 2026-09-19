@@ -2,6 +2,7 @@ import hashlib
 import re
 from pathlib import Path
 from dataclasses import dataclass
+import json
 
 from src.database.models import TranscriptionCache
 from src.database.session import session_scope
@@ -65,7 +66,7 @@ def _compute_audio_hash(file_path: str | Path) -> str:
     return sha256.hexdigest()
 
 
-def _check_cache(audio_hash: str) -> str | None:
+def _check_cache(audio_hash: str) -> TranscriptionResult | None:
     """Return cached transcription text if the audio hash exists."""
 
     with session_scope() as session:
@@ -78,27 +79,21 @@ def _check_cache(audio_hash: str) -> str | None:
         if cached is None:
             return None
 
-        cached_text = getattr(
-            cached,
-            "transcription_json",
-            None,
-        )
-
-        if cached_text is None:
-            cached_text = getattr(
-                cached,
-                "transcription",
-                None,
-            )
-
-        return cached_text
+        # Convert the JSON string stored in SQLite 
+        # back into a Python dictionary.
+        data = json.loads(cached.transcription_json) 
+        # Reconstruct the complete Pydantic model, 
+        # ncluding segments, timestamps, speakers, etc. 
+        return TranscriptionResult.model_validate(data)
 
 def _save_cache(
     audio_hash: str,
-    transcription: str,
     call_id: str,
+    transcription_result: TranscriptionResult,
 ) -> None:
     """Save a transcription result to the cache."""
+
+    transcription_json = transcription_result.model_dump_json()
 
     with session_scope() as session:
         existing = (
@@ -113,7 +108,7 @@ def _save_cache(
         session.add(
             TranscriptionCache(
                 audio_hash=audio_hash,
-                transcription_json=transcription,
+                transcription_json=transcription_json,
             )
         )
 
@@ -213,6 +208,7 @@ def _calculate_confidence(segment) -> float:
 
 
 def transcribe_audio(
+    original_file_path: str | Path,
     file_path: str | Path,
     call_id: str,
     model_size: str = "small",
@@ -223,18 +219,12 @@ def transcribe_audio(
     Uses SHA-256 caching to avoid repeated transcription.
     """
 
-    audio_hash = _compute_audio_hash(file_path)
+    audio_hash = _compute_audio_hash(original_file_path)
 
     cached = _check_cache(audio_hash)
 
     if cached is not None:
-        return TranscriptionResult(
-            call_id=call_id,
-            text=cached,
-            segments=[],
-            language="en",
-            duration_seconds=None,
-        )
+        return cached.model_copy( update={ "call_id": call_id, } )
 
     model = _get_whisper_model(model_size)
 
@@ -295,8 +285,8 @@ def transcribe_audio(
 
     _save_cache(
         audio_hash=audio_hash,
-        transcription=full_text,
         call_id=call_id,
+        transcription_result=result,
     )
 
     return result

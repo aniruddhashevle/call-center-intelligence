@@ -1,8 +1,11 @@
 from __future__ import annotations
+from email.mime import audio
+from pathlib import Path
 
 import gradio as gr
 
 from src.services.pipeline import PipelineResult, process_call
+from src.utils.audio import validate_audio_file
 
 
 def _show_processing_status() -> gr.Markdown:
@@ -26,12 +29,83 @@ def _hide_processing_status() -> gr.Markdown:
         visible=False,
     )
 
-
 def _process_call(
     audio,
     caller_id,
     department,
-):
+    ):
+    print("=== PROCESS CALL TRIGGERED ===")
+    print("audio type:", type(audio))
+    print("audio:", audio)
+
+    if not audio:
+        error = "Please upload an audio call."
+
+        result = PipelineResult(
+            call_id="",
+            status="failed",
+            transcript="",
+            summary="",
+            qa="",
+            error=error,
+        )
+
+        return (
+            result,
+            "",
+            f"❌ {error}",
+            "",
+            None,
+            None,
+        )
+
+    try:
+        # Validate the ORIGINAL uploaded file.
+        validation = validate_audio_file(Path(audio))
+
+        if not validation.is_valid:
+            error = validation.error or "Audio validation failed."
+
+            result = PipelineResult(
+                call_id="",
+                status="failed",
+                transcript="",
+                summary="",
+                qa="",
+                error=error,
+            )
+
+            return (
+                result,
+                "",
+                f"❌ {error}",
+                "",
+                None,
+                None,
+            )
+
+    except Exception as exc:
+        error = str(exc)
+
+        result = PipelineResult(
+            call_id="",
+            status="failed",
+            transcript="",
+            summary="",
+            qa="",
+            error=error,
+        )
+
+        return (
+            result,
+            "",
+            f"❌ {error}",
+            "",
+            None,
+            None,
+        )
+
+    # Process only once.
     result: PipelineResult = process_call(
         audio=audio,
         caller_id=caller_id or None,
@@ -71,7 +145,7 @@ def build_analyze_tab() -> None:
 
     audio = gr.Audio(
         sources=["upload"], #TODO: [ENHANCEMENT] add "microphone" source for direct recording.
-        type="numpy",
+        type="filepath",
         label="Call Audio",
     )
 

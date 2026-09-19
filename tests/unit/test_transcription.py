@@ -110,10 +110,10 @@ def test_transcribe_audio_calls_whisper_with_required_options(
 
     saved = {}
 
-    def fake_save_cache(audio_hash, transcription, call_id):
+    def fake_save_cache(audio_hash, call_id, transcription_result):
         saved["audio_hash"] = audio_hash
-        saved["transcription"] = transcription
         saved["call_id"] = call_id
+        saved["transcription_result"] = transcription_result
 
     monkeypatch.setattr(
         transcription,

@@ -65,6 +65,7 @@ def transcription_node(state: PipelineState) -> PipelineState:
             raise ValueError("No temporary audio file available")
 
         result = transcribe_audio(
+            original_file_path=Path(intake.original_file_path),
             file_path=Path(intake.temp_file_path),
             call_id=intake.call_id,
         )
