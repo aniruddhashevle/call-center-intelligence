@@ -82,6 +82,7 @@ def test_pipeline_success():
     audio_input = AudioInput(
         audio_data=make_wav_bytes(),
         filename="test.wav",
+        original_file_path="/home/user/projects/test.wav", # sample path
     )
 
     transcription = TranscriptionResult(

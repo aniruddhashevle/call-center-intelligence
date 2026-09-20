@@ -28,6 +28,9 @@ def get_engine():
         },
     )
 
+    print("DEBUG: Database engine created with path:", db_path)
+    print("DEBUG: Engine:", engine.url)
+
     encryption_key = getattr(
         config,
         "db_encryption_key",
@@ -65,6 +68,10 @@ def get_session() -> Session:
     engine_id = id(engine)
 
     factory = _session_factories.get(engine_id)
+
+
+    print("DEBUG: factory:", factory)
+    print("DEBUG: Engine:", engine.url, engine_id)
 
     if factory is None:
         factory = sessionmaker(

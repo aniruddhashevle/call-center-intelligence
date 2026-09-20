@@ -23,7 +23,7 @@ def get_llm(provider: str, model: str | None = None, timeout: float = 60):
 
     if provider == "gemini":
         return ChatGoogleGenerativeAI(
-            model=model or "gemini-2.0-flash",
+            model=model or "gemini-3.6-flash",
             timeout=timeout,
         )
 

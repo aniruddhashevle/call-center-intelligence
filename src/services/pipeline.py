@@ -1,5 +1,5 @@
 import logging
-import traceback
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -54,19 +54,61 @@ def _track_temp_file(path: str | Path) -> Path:
 
 
 def _write_audio_to_temp(
-    audio: tuple[int, np.ndarray],
+    audio_path: str | Path,
 ) -> Path:
-    """Write a Gradio (sample_rate, numpy_array) audio tuple to WAV."""
+    """Convert uploaded audio to a 16 kHz mono WAV temp file."""
 
-    sample_rate, audio_array = audio
+    source_path = Path(audio_path)
 
-    if audio_array is None:
-        raise ValueError("No audio data was provided.")
+    if not source_path.exists():
+        raise ValueError("Uploaded audio file could not be found.")
 
-    audio_array = np.asarray(audio_array)
+    # Read the original uploaded audio.
+    audio_array, sample_rate = sf.read(
+        source_path,
+        always_2d=False,
+    )
 
-    if audio_array.size == 0:
+    if audio_array is None or np.asarray(audio_array).size == 0:
         raise ValueError("The uploaded audio is empty.")
+
+    # Convert multi-channel audio (e.g. stereo/surround) into a single mono channel.
+    if audio_array.ndim > 1:
+        audio_array = audio_array.mean(axis=1)
+
+    # Set the target sample rate to 16 kHz (16,000 audio samples per second) for transcription.
+    target_sample_rate = 16000
+
+    # Resample the audio only if its current sample rate is different.
+    if sample_rate != target_sample_rate:
+        # Calculate how many samples the audio should have at the new sample rate.
+        target_length = round(
+            len(audio_array) * target_sample_rate / sample_rate
+        )
+
+        # Create positions representing the samples in the original audio.
+        old_positions = np.linspace(
+            0,
+            len(audio_array) - 1,
+            num=len(audio_array),
+        )
+
+        # Create positions for the samples needed at the new sample rate.
+        new_positions = np.linspace(
+            0,
+            len(audio_array) - 1,
+            num=target_length,
+        )
+
+        # Estimate values between original samples to create the correct number of samples for the new sample rate (interpolation).
+        audio_array = np.interp(
+            new_positions,
+            old_positions,
+            audio_array,
+        )
+
+        # Update the sample rate to reflect the converted audio.
+        sample_rate = target_sample_rate
 
     temp_file = tempfile.NamedTemporaryFile(
         suffix=".wav",
@@ -81,6 +123,7 @@ def _write_audio_to_temp(
         audio_array,
         sample_rate,
         format="WAV",
+        subtype="PCM_16",
     )
 
     return _track_temp_file(temp_path)
@@ -93,12 +136,6 @@ def _format_transcript(report: CallReport) -> str:
 
     if transcription is None:
         return ""
-
-    if not transcription.segments:
-        if not transcription.text:
-            return ""
-
-        return f"[00:00] Speaker: {transcription.text}"
 
     lines: list[str] = []
 
@@ -159,15 +196,17 @@ def _write_report_files(report: CallReport) -> tuple[str, str]:
 
 
 def process_call(
-    audio: tuple[int, np.ndarray] | None,
+    audio: str | Path | None,
     caller_id: str | None = None,
     department: str | None = None,
 ) -> PipelineResult:
     """
-    Process a Gradio audio input through the complete pipeline.
+    Process an uploaded audio file through the complete pipeline.
 
-    Gradio supplies audio as:
-        (sample_rate, numpy_array)
+    Gradio supplies the uploaded file as a filepath.
+    The original file is validated before this function is called.
+    The file is then converted to a temporary 16 kHz mono WAV for
+    transcription.
     """
 
     if audio is None:
@@ -177,17 +216,24 @@ def process_call(
             transcript="",
             summary="",
             qa="",
-            error="Please upload or record an audio call.",
+            error="Please upload an audio call.",
         )
 
     try:
+        # Convert the ORIGINAL uploaded file to a temporary WAV.
+        #
+        # Important:
+        # - Original MP3 remains the source file.
+        # - Validation happens on the original file in analyze.py.
+        # - Temporary WAV is used only for transcription.
         temp_audio_path = _write_audio_to_temp(audio)
 
         audio_input = AudioInput(
             audio_data=temp_audio_path.read_bytes(),
-            filename=temp_audio_path.name,
+            filename=Path(audio).name,
             caller_id=caller_id or None,
             department=department or None,
+            original_file_path=str(Path(audio)) if audio else None,
         )
 
         result = workflow.invoke(
@@ -249,6 +295,7 @@ def process_call(
 
     except Exception as exc:
         logger.exception("Pipeline crashed")
+
         return PipelineResult(
             call_id="",
             status="failed",

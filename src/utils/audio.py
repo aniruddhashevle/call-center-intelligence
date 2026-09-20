@@ -95,9 +95,11 @@ def validate_audio_file(file_path: str | Path) -> ValidationResult:
         )
 
     if file_size > MAX_FILE_SIZE_BYTES:
+        max_size_mb = MAX_FILE_SIZE_BYTES / (1024 * 1024)
+
         return ValidationResult(
             is_valid=False,
-            error="File is larger than 50 MB.",
+            error=f"File exceeds maximum allowed size of {max_size_mb:g} MB.",
         )
 
     try:

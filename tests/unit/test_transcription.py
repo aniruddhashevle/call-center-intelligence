@@ -1,6 +1,7 @@
 from types import SimpleNamespace
-
 from src.agents import transcription
+from pathlib import Path
+from src.graph.state import TranscriptionResult
 
 
 class FakeSegment:
@@ -39,8 +40,8 @@ def test_compute_audio_hash(tmp_path):
     file_path = tmp_path / "audio.wav"
     file_path.write_bytes(b"hello audio")
 
-    first_hash = transcription._compute_audio_hash(file_path)
-    second_hash = transcription._compute_audio_hash(file_path)
+    first_hash = transcription._compute_audio_hash(Path(file_path))
+    second_hash = transcription._compute_audio_hash(Path(file_path))
 
     assert first_hash == second_hash
     assert len(first_hash) == 64
@@ -110,10 +111,10 @@ def test_transcribe_audio_calls_whisper_with_required_options(
 
     saved = {}
 
-    def fake_save_cache(audio_hash, transcription, call_id):
+    def fake_save_cache(audio_hash, call_id, transcription_result):
         saved["audio_hash"] = audio_hash
-        saved["transcription"] = transcription
         saved["call_id"] = call_id
+        saved["transcription_result"] = transcription_result
 
     monkeypatch.setattr(
         transcription,
@@ -122,7 +123,8 @@ def test_transcribe_audio_calls_whisper_with_required_options(
     )
 
     result = transcription.transcribe_audio(
-        file_path,
+        original_file_path=file_path,
+        file_path=file_path,
         call_id="call-123",
         model_size="base",
     )
@@ -136,7 +138,7 @@ def test_transcribe_audio_calls_whisper_with_required_options(
 
     _, kwargs = fake_model.calls[0]
 
-    assert kwargs["beam_size"] == 1
+    assert kwargs["beam_size"] == 5
     assert kwargs["language"] == "en"
     assert kwargs["vad_filter"] is True
     assert kwargs["vad_parameters"] == {
@@ -157,7 +159,11 @@ def test_transcribe_audio_returns_cached_result(
     monkeypatch.setattr(
         transcription,
         "_check_cache",
-        lambda audio_hash: "Cached transcript",
+        lambda audio_hash: TranscriptionResult(
+            text="Cached transcript",
+            language='en',
+            call_id='new-call'
+        )
     )
 
     def fail_if_model_called(model_size):
@@ -172,7 +178,8 @@ def test_transcribe_audio_returns_cached_result(
     )
 
     result = transcription.transcribe_audio(
-        file_path,
+        original_file_path=file_path,
+        file_path=file_path,
         call_id="new-call",
     )
 
