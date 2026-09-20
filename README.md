@@ -136,7 +136,11 @@ Do not commit `.env` or API keys to Git.
 ## Run the Application
 
 ```bash
-uv run python -m src.ui.app
+make install
+```
+
+```bash
+make run
 ```
 
 Open:
@@ -277,14 +281,14 @@ Reports include transcription, summary, QA scores, and compliance information.
 
 The application has been validated with automated unit/integration tests and manual end-to-end testing through the Gradio UI.
 
-The current pipeline successfully supports:
+The current Multipe Agent Orchestrator pipeline successfully supports:
 
 ```text
 Audio
   ↓
 Validation
   ↓
-Transcription
+Speech-to-Text Transcription
   ↓
 Injection Detection
   ↓
@@ -296,8 +300,6 @@ Report Generation
   ↓
 SQLite Persistence
 ```
-
----
 
 ## Future Improvements
 
