@@ -315,6 +315,11 @@ SQLite Persistence
 
 ## App Preview
 
+### Call Analysis 1:
 ![Call Analysis](docs/sample_01_output.png)
+
+### Call Analysis 2:
 ![Call Analysis](docs/sample_02_output.png)
+
+### Observability 3:
 ![Observability](docs/sample_03_output.png)
