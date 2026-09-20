@@ -317,4 +317,4 @@ SQLite Persistence
 
 ![Call Analysis](docs/sample_01_output.png)
 ![Call Analysis](docs/sample_02_output.png)
-![Observability](docs/sample_01_output.png)
+![Observability](docs/sample_03_output.png)
