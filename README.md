@@ -109,16 +109,24 @@ ffprobe -version
 
 ## Installation
 
+
 Using `uv`:
 
 ```bash
 uv sync
 ```
 
-Create a `.env` file with the required configuration, for example:
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Update `.env` with your values.
 
 ```env
-OPENAI_API_KEY=your-api-key
+OPENAI_API_KEY=your_OPENAI_API_KEY
+...
 ```
 
 Do not commit `.env` or API keys to Git.
