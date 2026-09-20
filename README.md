@@ -315,6 +315,8 @@ SQLite Persistence
 
 ## App Preview
 
+The audios and output samples are provided in docs folder.
+
 ### Call Analysis 1:
 ![Call Analysis](docs/sample_01_output.png)
 
