@@ -1,6 +1,6 @@
 # Call Center Intelligence
 
-jAn AI-powered call center intelligence application that transforms call recordings into structured, actionable insights.
+An AI-powered call center intelligence application that transforms call recordings into structured, actionable insights.
 
 The application transcribes calls, identifies Agent/Customer dialogue, detects PII and prompt injection, generates summaries, scores agent performance, and produces PDF/JSON reports.
 
@@ -161,19 +161,19 @@ Example transcript:
 Run the complete test suite:
 
 ```bash
-uv run pytest -q
+make test-all
 ```
 
 Run unit tests:
 
 ```bash
-uv run pytest tests/unit -q
+make test-unit
 ```
 
 Run integration tests:
 
 ```bash
-uv run pytest tests/integration -q
+make test-integration
 ```
 
 Run a specific test:
@@ -186,14 +186,44 @@ The test suite covers transcription, caching, speaker labeling, PII detection, r
 
 ---
 
-## Database
+## Database and Cache
 
 The application uses SQLite with SQLAlchemy.
 
 Database:
 
 ```text
-data/app.db
+data/call_center.db
+```
+
+Database info:
+
+```bash
+make db-info
+```
+
+Database tables:
+
+```bash
+make db-tables
+```
+
+Reset Database:
+
+```bash
+make reset-db
+```
+
+Reset Cache:
+
+```bash
+make clean-cache
+```
+
+Reset both DB and Cache:
+
+```bash
+make reset
 ```
 
 The database stores call records, reports, audit information, and transcription cache data.

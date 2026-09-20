@@ -16,18 +16,6 @@ test-integration:
 test-all:
 	uv run pytest tests/ -v
 
-lint:
-	uv run ruff check .
-
-format:
-	uv run ruff check --fix .
-	uv run ruff format .
-
-check:
-	uv run ruff check .
-	uv run ruff format --check .
-	uv run pytest tests/ -q
-
 run:
 	uv run python app.py
 
