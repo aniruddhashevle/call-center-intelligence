@@ -311,3 +311,10 @@ SQLite Persistence
 * More PII patterns
 * Authentication and role-based access control
 * Enhanced reporting and analytics
+
+
+## App Preview
+
+![Call Analysis](docs/sample_01_output.png)
+![Call Analysis](docs/sample_02_output.png)
+![Observability](docs/sample_01_output.png)
